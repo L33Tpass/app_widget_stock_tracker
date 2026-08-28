@@ -13,4 +13,14 @@
         android:scaleType="fitCenter"
         android:adjustViewBounds="true"
         android:contentDescription="Stock Tracker Widget" />
+
+    <!-- Dedicated touch target for the refresh button in the top right corner -->
+    <FrameLayout
+        android:id="@+id/widget_refresh_button"
+        android:layout_width="60dp"
+        android:layout_height="50dp"
+        android:layout_gravity="top|end"
+        android:clickable="true"
+        android:focusable="true"
+        android:background="?android:attr/selectableItemBackgroundBorderless" />
 </FrameLayout>

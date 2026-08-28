@@ -1,8 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:home_widget/home_widget.dart';
 import 'screens/home_screen.dart';
+import 'services/native_widget_service.dart';
+
+/// Called in the background when user taps the refresh arrow on the phone home screen widget
+@pragma("vm:entry-point")
+Future<void> backgroundWidgetCallback(Uri? uri) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (uri?.host == 'refresh' || uri?.scheme == 'stocktracker') {
+    await NativeWidgetService().refreshFromBackground();
+  }
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  HomeWidget.registerInteractivityCallback(backgroundWidgetCallback);
   runApp(const StockTrackerApp());
 }
 

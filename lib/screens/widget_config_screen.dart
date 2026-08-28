@@ -5,6 +5,7 @@ import '../models/widget_stock_item.dart';
 import '../widgets/stock_widget_card.dart';
 import '../widgets/add_stock_dialog.dart';
 
+import '../services/market_data_service.dart';
 import '../services/native_widget_service.dart';
 
 class WidgetConfigScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class WidgetConfigScreen extends StatefulWidget {
 
 class _WidgetConfigScreenState extends State<WidgetConfigScreen> {
   late StockWidgetModel _widgetModel;
+  final MarketDataService _marketService = MarketDataService();
   final TextEditingController _titleController = TextEditingController();
 
   @override
@@ -218,10 +220,11 @@ class _WidgetConfigScreenState extends State<WidgetConfigScreen> {
             StockWidgetCard(
               widgetModel: _widgetModel,
               isPreview: true,
-              onRefresh: () {
-                setState(() {
-                  _widgetModel.lastUpdated = DateTime.now();
-                });
+              onRefresh: () async {
+                await _marketService.refreshWidgetLivePrices(_widgetModel);
+                if (mounted) {
+                  setState(() {});
+                }
               },
             ),
 

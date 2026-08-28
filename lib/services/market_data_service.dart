@@ -433,8 +433,14 @@ class MarketDataService {
     return double.parse(estimated.toStringAsFixed(2));
   }
 
+  void clearCache() {
+    _livePriceCache.clear();
+    _lastRateFetch = null;
+  }
+
   /// Refreshes all prices in a widget from live real market API
   Future<void> refreshWidgetLivePrices(StockWidgetModel widgetModel) async {
+    clearCache();
     for (var item in widgetModel.items) {
       try {
         final livePrice = await fetchLivePriceInEur(item.symbol);

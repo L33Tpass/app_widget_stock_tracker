@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/stock_widget_model.dart';
@@ -5,7 +6,7 @@ import 'stock_item_tile.dart';
 
 class StockWidgetCard extends StatefulWidget {
   final StockWidgetModel widgetModel;
-  final VoidCallback? onRefresh;
+  final FutureOr<void> Function()? onRefresh;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onPin;
@@ -25,29 +26,38 @@ class StockWidgetCard extends StatefulWidget {
   State<StockWidgetCard> createState() => _StockWidgetCardState();
 }
 
-class _StockWidgetCardState extends State<StockWidgetCard>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _rotationController;
+class _StockWidgetCardState extends State<StockWidgetCard> {
+  bool _isRefreshing = false;
 
-  @override
-  void initState() {
-    super.initState();
-    _rotationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 600),
-    );
-  }
+  Future<void> _handleRefresh() async {
+    if (_isRefreshing) return;
 
-  @override
-  void dispose() {
-    _rotationController.dispose();
-    super.dispose();
-  }
+    setState(() {
+      _isRefreshing = true;
+    });
 
-  void _handleRefresh() {
-    _rotationController.forward(from: 0.0);
-    if (widget.onRefresh != null) {
-      widget.onRefresh!();
+    try {
+      final futures = <Future<dynamic>>[
+        Future.delayed(const Duration(milliseconds: 650)),
+      ];
+      if (widget.onRefresh != null) {
+        futures.add(Future.sync(() => widget.onRefresh!()));
+      }
+      await Future.wait(futures);
+
+      if (mounted) {
+        setState(() {
+          widget.widgetModel.lastUpdated = DateTime.now();
+        });
+      }
+    } catch (e) {
+      debugPrint('Refresh error: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshing = false;
+        });
+      }
     }
   }
 
@@ -87,7 +97,7 @@ class _StockWidgetCardState extends State<StockWidgetCard>
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Header: Top-left date/time & Top-right refresh button + options
+              // Header: Top-left date/time & Top-right refresh button (loader when loading) + options
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -118,36 +128,44 @@ class _StockWidgetCardState extends State<StockWidgetCard>
                     ),
                   ),
 
-                  // Top-right: Refresh arrow icon & optional menu
+                  // Top-right: Refresh icon replaced with smooth loader during refresh
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      RotationTransition(
-                        turns: Tween(begin: 0.0, end: 1.0).animate(
-                          CurvedAnimation(
-                            parent: _rotationController,
-                            curve: Curves.easeInOut,
+                      if (_isRefreshing)
+                        Container(
+                          width: 38,
+                          height: 38,
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.all(8),
+                          child: const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF111827)),
+                            ),
                           ),
-                        ),
-                        child: IconButton(
+                        )
+                      else
+                        IconButton(
                           icon: const Icon(Icons.refresh_rounded),
-                          iconSize: 20,
-                          color: const Color(0xFF374151),
+                          iconSize: 26,
+                          color: const Color(0xFF1F2937),
                           tooltip: 'Actualiser les cours',
                           visualDensity: VisualDensity.compact,
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(
-                            minWidth: 32,
-                            minHeight: 32,
+                            minWidth: 38,
+                            minHeight: 38,
                           ),
                           onPressed: _handleRefresh,
                         ),
-                      ),
                       if (!widget.isPreview && (widget.onEdit != null || widget.onDelete != null))
                         PopupMenuButton<String>(
                           icon: Icon(
                             Icons.more_vert_rounded,
-                            size: 19,
+                            size: 20,
                             color: Colors.grey.shade600,
                           ),
                           padding: EdgeInsets.zero,
@@ -204,35 +222,41 @@ class _StockWidgetCardState extends State<StockWidgetCard>
 
               const SizedBox(height: 8),
               Divider(height: 1, color: Colors.grey.shade200),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
 
-              // Stock items list sorted by variation (highest to lowest)
+              // Sorted List of stocks: Highest variation on top, lowest on bottom
               if (sortedItems.isEmpty)
-                Container(
-                  padding: const EdgeInsets.symmetric(vertical: 24),
-                  alignment: Alignment.center,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.candlestick_chart_outlined, size: 36, color: Colors.grey.shade400),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Aucune action suivie pour l’instant',
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.grey.shade500,
-                          fontStyle: FontStyle.italic,
-                        ),
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      'Aucune action configurée',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey,
+                        fontStyle: FontStyle.italic,
                       ),
-                    ],
+                    ),
                   ),
                 )
               else
-                ...sortedItems.map(
-                  (item) => StockItemTile(
-                    item: item,
-                    showEditControls: false,
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: sortedItems.length,
+                  separatorBuilder: (context, index) => const Divider(
+                    height: 1,
+                    indent: 48,
+                    color: Color(0xFFF3F4F6),
                   ),
+                  itemBuilder: (context, index) {
+                    final item = sortedItems[index];
+                    return StockItemTile(
+                      item: item,
+                      showEditControls: false,
+                      isLoading: _isRefreshing,
+                    );
+                  },
                 ),
             ],
           ),
