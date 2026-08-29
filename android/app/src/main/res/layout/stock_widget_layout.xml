@@ -53,11 +53,13 @@
 
             <ProgressBar
                 android:id="@+id/widget_progress_bar"
-                style="@android:style/Widget.ProgressBar.Small"
+                style="?android:attr/progressBarStyleSmall"
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:layout_gravity="center"
                 android:indeterminate="true"
+                android:indeterminateTint="#111827"
+                android:indeterminateTintMode="src_in"
                 android:visibility="gone" />
         </FrameLayout>
     </LinearLayout>
