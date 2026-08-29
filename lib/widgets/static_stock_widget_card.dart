@@ -20,68 +20,65 @@ class StaticStockWidgetCard extends StatelessWidget {
       width: 360,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
-        ],
-        border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB), width: 1.0),
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // Header
-            Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.access_time_rounded, size: 14, color: Colors.grey.shade600),
-                    const SizedBox(width: 5),
+                    const Icon(Icons.access_time_rounded, size: 14, color: Color(0xFF6B7280)),
+                    const SizedBox(width: 6),
                     Text(
                       dateStr,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade700,
+                        fontWeight: FontWeight.normal,
+                        color: Color(0xFF4B5563),
                       ),
                     ),
                   ],
                 ),
-                Icon(Icons.refresh_rounded, size: 18, color: Colors.grey.shade700),
+                const Icon(Icons.refresh_rounded, size: 20, color: Color(0xFF374151)),
               ],
             ),
-            const SizedBox(height: 6),
-            Divider(height: 1, color: Colors.grey.shade200),
-            const SizedBox(height: 6),
+          ),
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
 
-            // Stocks
-            if (sortedItems.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Text(
-                    'Aucune action suivie',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ),
-              )
-            else
-              ...sortedItems.map(
-                (item) => StockItemTile(
-                  item: item,
-                  showEditControls: false,
+          // Stocks
+          if (sortedItems.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  'Aucune action suivie',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF)),
                 ),
               ),
-          ],
-        ),
+            )
+          else
+            ...sortedItems.map(
+              (item) => Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  StockItemTile(
+                    item: item,
+                    showEditControls: false,
+                  ),
+                  const Divider(height: 1, color: Color(0xFFF3F4F6)),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

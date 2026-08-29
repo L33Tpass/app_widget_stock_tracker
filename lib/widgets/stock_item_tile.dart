@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/widget_stock_item.dart';
 
 class StockItemTile extends StatelessWidget {
@@ -23,15 +24,17 @@ class StockItemTile extends StatelessWidget {
     final color = isPositive ? const Color(0xFF1B873F) : const Color(0xFFD93025);
     final bgColor = isPositive ? const Color(0xFFE6F4EA) : const Color(0xFFFCE8E6);
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
+    final currencyFormatter = NumberFormat.currency(
+      locale: 'fr_FR',
+      symbol: '€',
+      decimalDigits: 2,
+    );
+    final priceStr = currencyFormatter.format(item.currentPrice);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // Left: User custom name (and ticker symbol in small subscript)
           Expanded(
@@ -42,56 +45,56 @@ class StockItemTile extends StatelessWidget {
                 Text(
                   item.customName,
                   style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1F2937),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF111827),
                   ),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
                 if (item.customName.toUpperCase() != item.symbol.toUpperCase())
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      item.symbol,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey.shade600,
-                      ),
+                  Text(
+                    item.symbol,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: Color(0xFF6B7280),
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
               ],
             ),
           ),
+
+          // Price in EUR
+          Text(
+            priceStr,
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.normal,
+              color: Color(0xFF374151),
+            ),
+          ),
+          const SizedBox(width: 8),
 
           // Right: Variation percentage formatted or Loading state
           if (isLoading)
             _buildLoadingBadge()
           else
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
               decoration: BoxDecoration(
                 color: bgColor,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(6),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isPositive ? Icons.arrow_drop_up_rounded : Icons.arrow_drop_down_rounded,
-                    size: 20,
-                    color: color,
-                  ),
-                  Text(
-                    item.formattedVariation,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: color,
-                    ),
-                  ),
-                ],
+              child: Text(
+                item.formattedVariation,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
             ),
 
@@ -119,31 +122,29 @@ class StockItemTile extends StatelessWidget {
 
   Widget _buildLoadingBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
         color: const Color(0xFFF3F4F6),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: const Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: 12,
-            height: 12,
+            width: 10,
+            height: 10,
             child: CircularProgressIndicator(
-              strokeWidth: 2.0,
+              strokeWidth: 1.8,
               valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF6B7280)),
             ),
           ),
-          SizedBox(width: 6),
+          SizedBox(width: 4),
           Text(
             '··· %',
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: Color(0xFF6B7280),
-              letterSpacing: 1.0,
             ),
           ),
         ],

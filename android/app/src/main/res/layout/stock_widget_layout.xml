@@ -1,26 +1,95 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="0dp"
-    android:background="@android:color/transparent">
+    android:orientation="vertical"
+    android:background="@drawable/widget_background">
 
-    <ImageView
-        android:id="@+id/widget_image"
+    <!-- Header -->
+    <LinearLayout
+        android:id="@+id/widget_header"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:scaleType="fitCenter"
-        android:adjustViewBounds="true"
-        android:contentDescription="Stock Tracker Widget" />
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp">
 
-    <!-- Dedicated touch target for the refresh button in the top right corner -->
+        <ImageView
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:src="@drawable/ic_time"
+            android:contentDescription="Time icon" />
+
+        <TextView
+            android:id="@+id/widget_last_updated"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginLeft="6dp"
+            android:layout_marginStart="6dp"
+            android:text="--/--/---- --:--"
+            android:textColor="#4B5563"
+            android:textSize="12sp"
+            android:textStyle="normal"
+            android:maxLines="1" />
+
+        <!-- Refresh Container: Button & ProgressBar -->
+        <FrameLayout
+            android:id="@+id/widget_refresh_container"
+            android:layout_width="32dp"
+            android:layout_height="32dp">
+
+            <ImageView
+                android:id="@+id/widget_refresh_button"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_refresh"
+                android:contentDescription="Actualiser les cours" />
+
+            <ProgressBar
+                android:id="@+id/widget_progress_bar"
+                style="@android:style/Widget.ProgressBar.Small"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                android:visibility="gone" />
+        </FrameLayout>
+    </LinearLayout>
+
+    <!-- Divider (Using FrameLayout which is allowed in RemoteViews) -->
     <FrameLayout
-        android:id="@+id/widget_refresh_button"
-        android:layout_width="60dp"
-        android:layout_height="50dp"
-        android:layout_gravity="top|end"
-        android:clickable="true"
-        android:focusable="true"
-        android:background="?android:attr/selectableItemBackgroundBorderless" />
-</FrameLayout>
+        android:id="@+id/widget_divider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#E5E7EB" />
+
+    <!-- List container -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <ListView
+            android:id="@+id/stock_list_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="#F3F4F6"
+            android:dividerHeight="1dp" />
+
+        <TextView
+            android:id="@+id/widget_empty_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="Aucune action suivie"
+            android:textColor="#9CA3AF"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </FrameLayout>
+</LinearLayout>

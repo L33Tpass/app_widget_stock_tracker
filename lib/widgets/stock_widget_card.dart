@@ -64,7 +64,7 @@ class _StockWidgetCardState extends State<StockWidgetCard> {
   @override
   Widget build(BuildContext context) {
     final sortedItems = widget.widgetModel.sortedItems;
-    final dateStr = DateFormat('dd/MM/yyyy HH:mm:ss').format(widget.widgetModel.lastUpdated);
+    final dateStr = DateFormat('dd/MM/yyyy HH:mm').format(widget.widgetModel.lastUpdated);
 
     return Container(
       decoration: BoxDecoration(
