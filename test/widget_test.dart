@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:app_widget_stock_tracker/main.dart';
 import 'package:app_widget_stock_tracker/models/widget_stock_item.dart';
 import 'package:app_widget_stock_tracker/models/stock_widget_model.dart';
+import 'package:app_widget_stock_tracker/services/widget_storage_service.dart';
 import 'package:app_widget_stock_tracker/widgets/stock_widget_card.dart';
 import 'package:app_widget_stock_tracker/widgets/stock_item_tile.dart';
 
@@ -205,5 +206,35 @@ void main() {
     await tester.tap(find.text('Modifier'));
     await tester.pumpAndSettle();
     expect(edited, isTrue);
+  });
+
+  test('WidgetStorageService saves and restores widgets correctly', () async {
+    final now = DateTime.now();
+    final model = StockWidgetModel(
+      id: 'stored-widget-1',
+      title: 'Mon PEA Actions',
+      lastUpdated: now,
+      isPinned: true,
+      items: [
+        WidgetStockItem(
+          id: 'item-1',
+          symbol: 'AAPL',
+          customName: 'Apple Inc',
+          purchaseDate: now.subtract(const Duration(days: 15)),
+          initialPrice: 150.0,
+          currentPrice: 185.0,
+        ),
+      ],
+    );
+
+    final storage = WidgetStorageService();
+    await storage.saveWidgets([model]);
+
+    final loaded = await storage.loadWidgets();
+    expect(loaded.length, 1);
+    expect(loaded.first.id, 'stored-widget-1');
+    expect(loaded.first.title, 'Mon PEA Actions');
+    expect(loaded.first.items.first.symbol, 'AAPL');
+    expect(loaded.first.isPinned, isTrue);
   });
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/stock_widget_model.dart';
 import '../services/market_data_service.dart';
 import '../services/native_widget_service.dart';
+import '../services/widget_storage_service.dart';
 import '../widgets/stock_widget_card.dart';
 import 'widget_config_screen.dart';
 
@@ -13,15 +14,16 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  final List<StockWidgetModel> _widgets = [];
+  List<StockWidgetModel> _widgets = [];
   final MarketDataService _marketService = MarketDataService();
   final NativeWidgetService _nativeWidgetService = NativeWidgetService();
+  final WidgetStorageService _storageService = WidgetStorageService();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _syncPinnedStatus();
+    _loadPersistedWidgets();
   }
 
   @override
@@ -37,6 +39,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _loadPersistedWidgets() async {
+    final loaded = await _storageService.loadWidgets();
+    if (mounted) {
+      setState(() {
+        _widgets = loaded;
+      });
+      await _syncPinnedStatus();
+    }
+  }
+
+  Future<void> _saveWidgets() async {
+    await _storageService.saveWidgets(_widgets);
+  }
+
   Future<void> _syncPinnedStatus() async {
     try {
       final isPinned = await _nativeWidgetService.isWidgetPinned();
@@ -46,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             w.isPinned = isPinned;
           }
         });
+        await _saveWidgets();
       }
     } catch (e) {
       debugPrint('Error syncing pinned status: $e');
@@ -70,6 +87,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _widgets.add(result);
         }
       });
+      await _saveWidgets();
       await _nativeWidgetService.updateNativeWidget(result);
       await _syncPinnedStatus();
     }
@@ -77,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _refreshWidget(StockWidgetModel widgetModel) async {
     await _marketService.refreshWidgetLivePrices(widgetModel);
+    await _saveWidgets();
     await _nativeWidgetService.updateNativeWidget(widgetModel);
     if (mounted) {
       setState(() {});
@@ -87,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     await _nativeWidgetService.updateNativeWidget(widgetModel);
     final success = await _nativeWidgetService.pinToHomeScreen();
     await _syncPinnedStatus();
+    await _saveWidgets();
     if (mounted && !success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -97,16 +117,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _deleteWidget(String id) {
+  void _deleteWidget(String id) async {
     setState(() {
       _widgets.removeWhere((w) => w.id == id);
     });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Widget supprimé'),
-        duration: Duration(seconds: 2),
-      ),
-    );
+    await _saveWidgets();
+    if (_widgets.isNotEmpty) {
+      await _nativeWidgetService.updateNativeWidget(_widgets.first);
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Widget supprimé'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override
