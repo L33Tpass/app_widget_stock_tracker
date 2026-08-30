@@ -253,7 +253,7 @@ class _StockWidgetCardState extends State<StockWidgetCard> {
             // 2. Body: Stocks content (or Inactive state with tinted background)
             if (isInactive)
               Container(
-                color: const Color(0xFFF9FAFB),
+                color: const Color(0xFF999999),
                 child: Material(
                   color: Colors.transparent,
                   child: InkWell(
