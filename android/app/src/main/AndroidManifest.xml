@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="app_widget_stock_tracker"
         android:name="${applicationName}"
@@ -41,6 +43,15 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/stock_widget_info" />
+        </receiver>
+
+        <!-- Background receiver for home_widget background actions -->
+        <receiver
+            android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="es.antonborri.home_widget.action.BACKGROUND" />
+            </intent-filter>
         </receiver>
 
         <service

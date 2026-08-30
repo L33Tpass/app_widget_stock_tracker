@@ -18,6 +18,7 @@ class NativeWidgetService {
       await HomeWidget.updateWidget(
         name: 'StockWidgetProvider',
         androidName: 'StockWidgetProvider',
+        qualifiedAndroidName: 'com.example.app_widget_stock_tracker.StockWidgetProvider',
       );
     } catch (e) {
       debugPrint('Native home widget update error: $e');
@@ -32,9 +33,22 @@ class NativeWidgetService {
         final model = StockWidgetModel.fromJsonString(jsonStr);
         await MarketDataService().refreshWidgetLivePrices(model);
         await updateNativeWidget(model);
+      } else {
+        await HomeWidget.updateWidget(
+          name: 'StockWidgetProvider',
+          androidName: 'StockWidgetProvider',
+          qualifiedAndroidName: 'com.example.app_widget_stock_tracker.StockWidgetProvider',
+        );
       }
     } catch (e) {
       debugPrint('Error refreshing widget in background: $e');
+      try {
+        await HomeWidget.updateWidget(
+          name: 'StockWidgetProvider',
+          androidName: 'StockWidgetProvider',
+          qualifiedAndroidName: 'com.example.app_widget_stock_tracker.StockWidgetProvider',
+        );
+      } catch (_) {}
     }
   }
 

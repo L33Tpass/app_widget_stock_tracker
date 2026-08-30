@@ -12,9 +12,9 @@ Future<void> backgroundWidgetCallback(Uri? uri) async {
   }
 }
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  HomeWidget.registerInteractivityCallback(backgroundWidgetCallback);
+  await HomeWidget.registerInteractivityCallback(backgroundWidgetCallback);
   runApp(const StockTrackerApp());
 }
 
