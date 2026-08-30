@@ -124,20 +124,21 @@ class _StockWidgetCardState extends State<StockWidgetCard> {
         border: Border.all(
           color: widget.isPreview
               ? const Color(0xFF6366F1).withValues(alpha: 0.3)
-              : Colors.black.withValues(alpha: 0.04),
+              : Colors.black.withValues(alpha: 0.06),
           width: widget.isPreview ? 1.5 : 1.0,
         ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Header: Top-left date/time & Top-right refresh button + 3-dots menu
-              Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // 1. Header (Taskbar) - Always crisp, solid black icons and text on clean background
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.fromLTRB(16, 10, 10, 10),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -147,8 +148,8 @@ class _StockWidgetCardState extends State<StockWidgetCard> {
                       children: [
                         const Icon(
                           Icons.access_time_rounded,
-                          size: 15,
-                          color: Color(0xFF4B5563),
+                          size: 16,
+                          color: Color(0xFF111827),
                         ),
                         const SizedBox(width: 6),
                         Flexible(
@@ -156,8 +157,8 @@ class _StockWidgetCardState extends State<StockWidgetCard> {
                             dateStr,
                             style: const TextStyle(
                               fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF374151),
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF111827),
                               letterSpacing: 0.2,
                             ),
                             overflow: TextOverflow.ellipsis,
@@ -205,7 +206,7 @@ class _StockWidgetCardState extends State<StockWidgetCard> {
                           icon: const Icon(
                             Icons.more_vert_rounded,
                             size: 22,
-                            color: Color(0xFF374151),
+                            color: Color(0xFF111827),
                           ),
                           padding: const EdgeInsets.all(6),
                           constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
@@ -245,108 +246,102 @@ class _StockWidgetCardState extends State<StockWidgetCard> {
                   ),
                 ],
               ),
+            ),
 
-              const SizedBox(height: 6),
-              const Divider(height: 12, thickness: 1, color: Color(0xFFE5E7EB)),
-              const SizedBox(height: 2),
+            const Divider(height: 1, thickness: 1, color: Color(0xFFE5E7EB)),
 
-              // Body: Stocks content (Grayed out with clickable prompt if inactive)
-              if (isInactive)
-                Material(
+            // 2. Body: Stocks content (or Inactive state with tinted background)
+            if (isInactive)
+              Container(
+                color: const Color(0xFFF9FAFB),
+                child: Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(14),
                     onTap: widget.onPin,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          ColorFiltered(
-                            colorFilter: const ColorFilter.mode(
-                              Colors.grey,
-                              BlendMode.saturation,
-                            ),
-                            child: Opacity(
-                              opacity: 0.30,
-                              child: _buildStocksContent(sortedItems),
-                            ),
+                          Opacity(
+                            opacity: 0.35,
+                            child: _buildStocksContent(sortedItems),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.96),
-                                borderRadius: BorderRadius.circular(14),
-                                border: Border.all(
-                                  color: const Color(0xFFD1D5DB),
-                                  width: 1.2,
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0xFFD1D5DB),
+                                width: 1.2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.08),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
                                 ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.08),
-                                    blurRadius: 12,
-                                    offset: const Offset(0, 4),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFEEF2FF),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: const Color(0xFFC7D2FE)),
                                   ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(6),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEEF2FF),
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: const Color(0xFFC7D2FE)),
-                                    ),
-                                    child: const Icon(
-                                      Icons.touch_app_rounded,
-                                      size: 18,
-                                      color: Color(0xFF4F46E5),
-                                    ),
+                                  child: const Icon(
+                                    Icons.touch_app_rounded,
+                                    size: 18,
+                                    color: Color(0xFF4F46E5),
                                   ),
-                                  const SizedBox(width: 10),
-                                  const Flexible(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Widget inactif',
-                                          style: TextStyle(
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.bold,
-                                            color: Color(0xFF1F2937),
-                                          ),
+                                ),
+                                const SizedBox(width: 10),
+                                const Flexible(
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Widget inactif',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF111827),
                                         ),
-                                        SizedBox(height: 2),
-                                        Text(
-                                          'Cliquer pour l’ajouter à l’écran d’accueil',
-                                          style: TextStyle(
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w500,
-                                            color: Color(0xFF4B5563),
-                                          ),
-                                          softWrap: true,
+                                      ),
+                                      SizedBox(height: 2),
+                                      Text(
+                                        'Cliquer pour l’ajouter à l’écran d’accueil',
+                                        style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w500,
+                                          color: Color(0xFF4B5563),
                                         ),
-                                      ],
-                                    ),
+                                        softWrap: true,
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
                     ),
                   ),
-                )
-              else
-                _buildStocksContent(sortedItems),
-            ],
-          ),
+                ),
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: _buildStocksContent(sortedItems),
+              ),
+          ],
         ),
       ),
     );
