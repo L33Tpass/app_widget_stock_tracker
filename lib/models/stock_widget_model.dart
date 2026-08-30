@@ -6,12 +6,14 @@ class StockWidgetModel {
   String title;
   List<WidgetStockItem> items;
   DateTime lastUpdated;
+  bool isPinned;
 
   StockWidgetModel({
     required this.id,
     this.title = 'Suivi des Actions',
     required this.items,
     required this.lastUpdated,
+    this.isPinned = false,
   });
 
   /// Items sorted by variation percentage descending (highest in top, lowest in bottom)
@@ -26,6 +28,7 @@ class StockWidgetModel {
     'title': title,
     'items': items.map((i) => i.toJson()).toList(),
     'lastUpdated': lastUpdated.toIso8601String(),
+    'isPinned': isPinned,
   };
 
   factory StockWidgetModel.fromJson(Map<String, dynamic> json) => StockWidgetModel(
@@ -38,6 +41,7 @@ class StockWidgetModel {
     lastUpdated: json['lastUpdated'] != null
         ? DateTime.parse(json['lastUpdated'] as String)
         : DateTime.now(),
+    isPinned: (json['isPinned'] as bool?) ?? false,
   );
 
   String toJsonString() => jsonEncode(toJson());
@@ -50,6 +54,7 @@ class StockWidgetModel {
     String? title,
     List<WidgetStockItem>? items,
     DateTime? lastUpdated,
+    bool? isPinned,
   }) {
     return StockWidgetModel(
       id: id ?? this.id,
@@ -58,6 +63,7 @@ class StockWidgetModel {
           ? items.map((e) => e.copyWith()).toList()
           : this.items.map((e) => e.copyWith()).toList(),
       lastUpdated: lastUpdated ?? this.lastUpdated,
+      isPinned: isPinned ?? this.isPinned,
     );
   }
 }

@@ -67,4 +67,15 @@ class NativeWidgetService {
     }
     return false;
   }
+
+  /// Checks if any widget instance is currently pinned to the Android home screen
+  Future<bool> isWidgetPinned() async {
+    try {
+      final installedWidgets = await HomeWidget.getInstalledWidgets();
+      return installedWidgets.isNotEmpty;
+    } catch (e) {
+      debugPrint('Error checking installed widgets: $e');
+      return false;
+    }
+  }
 }

@@ -12,10 +12,45 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final List<StockWidgetModel> _widgets = [];
   final MarketDataService _marketService = MarketDataService();
   final NativeWidgetService _nativeWidgetService = NativeWidgetService();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _syncPinnedStatus();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncPinnedStatus();
+    }
+  }
+
+  Future<void> _syncPinnedStatus() async {
+    try {
+      final isPinned = await _nativeWidgetService.isWidgetPinned();
+      if (mounted) {
+        setState(() {
+          for (final w in _widgets) {
+            w.isPinned = isPinned;
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error syncing pinned status: $e');
+    }
+  }
 
   Future<void> _openWidgetConfig({StockWidgetModel? existingWidget}) async {
     final result = await Navigator.of(context).push<StockWidgetModel>(
@@ -36,6 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       });
       await _nativeWidgetService.updateNativeWidget(result);
+      await _syncPinnedStatus();
     }
   }
 
@@ -50,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _pinWidget(StockWidgetModel widgetModel) async {
     await _nativeWidgetService.updateNativeWidget(widgetModel);
     final success = await _nativeWidgetService.pinToHomeScreen();
+    await _syncPinnedStatus();
     if (mounted && !success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(

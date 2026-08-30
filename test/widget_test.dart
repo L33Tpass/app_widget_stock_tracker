@@ -45,6 +45,7 @@ void main() {
     final model = StockWidgetModel(
       id: 'test-widget',
       lastUpdated: now,
+      isPinned: true,
       items: [
         WidgetStockItem(
           id: '1',
@@ -93,5 +94,116 @@ void main() {
     expect(find.text('+30.00%'), findsOneWidget);
     expect(find.text('+5.00%'), findsOneWidget);
     expect(find.text('-10.00%'), findsOneWidget);
+  });
+
+  testWidgets('StockWidgetCard displays inactive state when isPinned is false and triggers onPin on click', (WidgetTester tester) async {
+    bool pinClicked = false;
+    final now = DateTime.now();
+    final model = StockWidgetModel(
+      id: 'test-inactive-widget',
+      lastUpdated: now,
+      isPinned: false,
+      items: [
+        WidgetStockItem(
+          id: '1',
+          symbol: 'BTC/EUR',
+          customName: 'Bitcoin',
+          purchaseDate: now.subtract(const Duration(days: 10)),
+          initialPrice: 50000.0,
+          currentPrice: 60000.0,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StockWidgetCard(
+            widgetModel: model,
+            onPin: () => pinClicked = true,
+            onEdit: () {},
+            onDelete: () {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify inactive text is shown
+    expect(find.text('Widget inactif'), findsOneWidget);
+    expect(find.text('Cliquer pour l’ajouter à l’écran d’accueil'), findsOneWidget);
+
+    // Verify header components are present and not hidden
+    expect(find.byIcon(Icons.access_time_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.more_vert_rounded), findsOneWidget);
+
+    // Tap on the inactive card
+    await tester.tap(find.text('Widget inactif'));
+    await tester.pumpAndSettle();
+
+    expect(pinClicked, isTrue);
+
+    // Tap on the 3 dots menu
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
+    await tester.pumpAndSettle();
+
+    // Verify 'Modifier' and 'Supprimer' are present, but 'Épingler sur l\'accueil' is NOT present
+    expect(find.text('Modifier'), findsOneWidget);
+    expect(find.text('Supprimer'), findsOneWidget);
+    expect(find.text('Épingler sur l\'accueil'), findsNothing);
+  });
+
+  testWidgets('Header refresh and edit buttons work independently when widget is inactive on small screen', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() => tester.view.resetPhysicalSize());
+
+    bool refreshed = false;
+    bool edited = false;
+    final now = DateTime.now();
+    final model = StockWidgetModel(
+      id: 'test-inactive-narrow',
+      lastUpdated: now,
+      isPinned: false,
+      items: [
+        WidgetStockItem(
+          id: '1',
+          symbol: 'BTC/EUR',
+          customName: 'Bitcoin',
+          purchaseDate: now.subtract(const Duration(days: 10)),
+          initialPrice: 50000.0,
+          currentPrice: 60000.0,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StockWidgetCard(
+            widgetModel: model,
+            onRefresh: () => refreshed = true,
+            onEdit: () => edited = true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify no render overflow occurred on narrow screen
+    expect(tester.takeException(), isNull);
+
+    // Tap refresh button in header
+    await tester.tap(find.byIcon(Icons.refresh_rounded));
+    await tester.pumpAndSettle();
+    expect(refreshed, isTrue);
+
+    // Open 3 dots menu and tap Modifier
+    await tester.tap(find.byIcon(Icons.more_vert_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Modifier'));
+    await tester.pumpAndSettle();
+    expect(edited, isTrue);
   });
 }
