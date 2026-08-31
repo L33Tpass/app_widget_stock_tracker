@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/stock_asset.dart';
@@ -29,6 +30,8 @@ class _AddStockDialogState extends State<AddStockDialog> {
   final MarketDataService _marketService = MarketDataService();
   late List<StockAsset> _allAssets;
   late List<StockAsset> _filteredAssets;
+  List<StockAsset> _onlineSearchResults = [];
+  Timer? _debounceTimer;
 
   StockAsset? _selectedAsset;
   late TextEditingController _customNameController;
@@ -38,6 +41,7 @@ class _AddStockDialogState extends State<AddStockDialog> {
   double _calculatedInitialPrice = 0.0;
   double _liveCurrentPrice = 0.0;
   bool _isLoadingPrice = false;
+  bool _isSearchingOnline = false;
   String _selectedCategoryFilter = 'ALL';
 
   @override
@@ -48,7 +52,16 @@ class _AddStockDialogState extends State<AddStockDialog> {
     _searchController = TextEditingController();
 
     if (widget.existingItem != null) {
-      _selectedAsset = _marketService.getAssetBySymbol(widget.existingItem!.symbol) ?? _allAssets.first;
+      _selectedAsset = _marketService.getAssetBySymbol(widget.existingItem!.symbol) ??
+          StockAsset(
+            symbol: widget.existingItem!.symbol,
+            name: widget.existingItem!.customName,
+            category: AssetCategory.usStock,
+            currentPrice: widget.existingItem!.currentPrice,
+            currency: '€',
+            color: const Color(0xFF4F46E5),
+            icon: Icons.trending_up,
+          );
       _customNameController = TextEditingController(text: widget.existingItem!.customName);
       _selectedDateTime = widget.existingItem!.purchaseDate;
       _calculatedInitialPrice = widget.existingItem!.initialPrice;
@@ -56,7 +69,8 @@ class _AddStockDialogState extends State<AddStockDialog> {
       _initialPriceController = TextEditingController(text: _calculatedInitialPrice.toStringAsFixed(2));
       _fetchLiveCurrentPrice();
     } else {
-      _selectedAsset = _allAssets.firstWhere((a) => a.symbol == 'AAPL', orElse: () => _allAssets.first);
+      // Default selection to TTWO or AAPL
+      _selectedAsset = _allAssets.firstWhere((a) => a.symbol == 'TTWO', orElse: () => _allAssets.first);
       _customNameController = TextEditingController(text: _selectedAsset!.name);
       _selectedDateTime = DateTime.now().subtract(const Duration(days: 24, hours: 12));
       _liveCurrentPrice = _selectedAsset!.currentPrice;
@@ -69,6 +83,7 @@ class _AddStockDialogState extends State<AddStockDialog> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _customNameController.dispose();
     _searchController.dispose();
     _initialPriceController.dispose();
@@ -116,18 +131,60 @@ class _AddStockDialogState extends State<AddStockDialog> {
     }
   }
 
-  void _filterAssets() {
+  void _onSearchChanged(String query) {
+    _filterLocalAssets();
+
+    _debounceTimer?.cancel();
+    final clean = query.trim();
+    if (clean.length >= 2) {
+      _debounceTimer = Timer(const Duration(milliseconds: 350), () {
+        _performOnlineSearch(clean);
+      });
+    } else {
+      setState(() {
+        _onlineSearchResults = [];
+        _isSearchingOnline = false;
+      });
+    }
+  }
+
+  Future<void> _performOnlineSearch(String query) async {
+    setState(() {
+      _isSearchingOnline = true;
+    });
+
+    final results = await _marketService.searchAssetsOnline(query);
+
+    if (mounted && _searchController.text.trim() == query) {
+      setState(() {
+        // Filter out results that are already in local catalogue
+        _onlineSearchResults = results.where((online) {
+          return !_allAssets.any((local) => local.symbol.toUpperCase() == online.symbol.toUpperCase());
+        }).toList();
+        _isSearchingOnline = false;
+      });
+    }
+  }
+
+  void _filterLocalAssets() {
     final query = _searchController.text.toLowerCase().trim();
     setState(() {
       _filteredAssets = _allAssets.where((asset) {
-        final matchesQuery = asset.symbol.toLowerCase().contains(query) ||
+        final matchesQuery = query.isEmpty ||
+            asset.symbol.toLowerCase().contains(query) ||
             asset.name.toLowerCase().contains(query);
         if (!matchesQuery) return false;
 
-        if (_selectedCategoryFilter == 'US') {
+        if (_selectedCategoryFilter == 'GAMING') {
+          return asset.category == AssetCategory.gaming;
+        } else if (_selectedCategoryFilter == 'US') {
           return asset.category == AssetCategory.usStock;
+        } else if (_selectedCategoryFilter == 'EU') {
+          return asset.category == AssetCategory.euStock;
         } else if (_selectedCategoryFilter == 'CRYPTO') {
-          return asset.category == AssetCategory.crypto || asset.category == AssetCategory.marketIndex;
+          return asset.category == AssetCategory.crypto;
+        } else if (_selectedCategoryFilter == 'INDEX') {
+          return asset.category == AssetCategory.marketIndex;
         }
         return true;
       }).toList();
@@ -204,8 +261,11 @@ class _AddStockDialogState extends State<AddStockDialog> {
     final isPositive = variation >= 0;
     final varColor = isPositive ? const Color(0xFF1B873F) : const Color(0xFFD93025);
 
+    // Combine local filtered and online search results
+    final combinedList = [..._filteredAssets, ..._onlineSearchResults];
+
     return Container(
-      height: mediaQuery.size.height * 0.90,
+      height: mediaQuery.size.height * 0.92,
       padding: EdgeInsets.only(bottom: bottomInset),
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -254,23 +314,49 @@ class _AddStockDialogState extends State<AddStockDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Section 1: Choose stock asset
-                  const Text(
-                    "1. Choisir l'action / crypto",
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF374151),
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "1. Choisir l'action / crypto",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF374151),
+                        ),
+                      ),
+                      if (_isSearchingOnline)
+                        const Row(
+                          children: [
+                            SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            SizedBox(width: 6),
+                            Text("Recherche Yahoo...", style: TextStyle(fontSize: 11, color: Colors.indigo)),
+                          ],
+                        ),
+                    ],
                   ),
                   const SizedBox(height: 8),
 
                   // Search bar
                   TextField(
                     controller: _searchController,
-                    onChanged: (_) => _filterAssets(),
+                    onChanged: _onSearchChanged,
                     decoration: InputDecoration(
-                      hintText: 'Rechercher (ex: Apple, Nvidia, Bitcoin)...',
+                      hintText: 'Rechercher (ex: Take-Two, GTA, LVMH, Nvidia, BTC)...',
                       prefixIcon: const Icon(Icons.search, size: 20),
+                      suffixIcon: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 18),
+                              onPressed: () {
+                                _searchController.clear();
+                                _onSearchChanged('');
+                              },
+                            )
+                          : null,
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       filled: true,
                       fillColor: const Color(0xFFF3F4F6),
@@ -288,10 +374,16 @@ class _AddStockDialogState extends State<AddStockDialog> {
                     child: Row(
                       children: [
                         _buildCategoryChip('Tous', 'ALL'),
-                        const SizedBox(width: 8),
-                        _buildCategoryChip('Actions USA', 'US'),
-                        const SizedBox(width: 8),
-                        _buildCategoryChip('Cryptos & Indices', 'CRYPTO'),
+                        const SizedBox(width: 6),
+                        _buildCategoryChip('🎮 Jeux Vidéo', 'GAMING'),
+                        const SizedBox(width: 6),
+                        _buildCategoryChip('🇺🇸 Actions USA', 'US'),
+                        const SizedBox(width: 6),
+                        _buildCategoryChip('🇫🇷 France & Europe', 'EU'),
+                        const SizedBox(width: 6),
+                        _buildCategoryChip('🪙 Cryptos', 'CRYPTO'),
+                        const SizedBox(width: 6),
+                        _buildCategoryChip('📈 Indices & Or', 'INDEX'),
                       ],
                     ),
                   ),
@@ -299,28 +391,41 @@ class _AddStockDialogState extends State<AddStockDialog> {
 
                   // Asset selector list
                   Container(
-                    height: 140,
+                    height: 160,
                     decoration: BoxDecoration(
                       color: const Color(0xFFF9FAFB),
                       borderRadius: BorderRadius.circular(14),
                       border: Border.all(color: Colors.grey.shade200),
                     ),
-                    child: _filteredAssets.isEmpty
-                        ? const Center(child: Text("Aucun résultat trouvé"))
+                    child: combinedList.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Text(
+                                _isSearchingOnline
+                                    ? "Recherche de '${_searchController.text}' sur les marchés..."
+                                    : "Aucun résultat trouvé pour '${_searchController.text}'",
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                              ),
+                            ),
+                          )
                         : ListView.separated(
-                            padding: const EdgeInsets.all(8),
-                            itemCount: _filteredAssets.length,
+                            padding: const EdgeInsets.all(6),
+                            itemCount: combinedList.length,
                             separatorBuilder: (context, idx) => const Divider(height: 1, indent: 48),
                             itemBuilder: (ctx, idx) {
-                              final asset = _filteredAssets[idx];
+                              final asset = combinedList[idx];
                               final isSelected = _selectedAsset?.symbol == asset.symbol;
+                              final isOnlineResult = idx >= _filteredAssets.length;
+
                               return InkWell(
                                 onTap: () {
                                   setState(() {
                                     _selectedAsset = asset;
                                     _liveCurrentPrice = asset.currentPrice;
                                     if (_customNameController.text.isEmpty ||
-                                        _allAssets.any((a) => a.name == _customNameController.text || a.symbol == _customNameController.text)) {
+                                        _allAssets.any((a) => a.name == _customNameController.text || a.symbol == _customNameController.text) ||
+                                        _onlineSearchResults.any((a) => a.name == _customNameController.text)) {
                                       _customNameController.text = asset.name;
                                     }
                                   });
@@ -351,13 +456,45 @@ class _AddStockDialogState extends State<AddStockDialog> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           mainAxisSize: MainAxisSize.min,
                                           children: [
-                                            Text(
-                                              asset.symbol,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13.5,
-                                                color: isSelected ? const Color(0xFF4338CA) : Colors.black87,
-                                              ),
+                                            Row(
+                                              children: [
+                                                Text(
+                                                  asset.symbol,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13.5,
+                                                    color: isSelected ? const Color(0xFF4338CA) : Colors.black87,
+                                                  ),
+                                                ),
+                                                if (asset.exchange != null && asset.exchange!.isNotEmpty) ...[
+                                                  const SizedBox(width: 6),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.grey.shade200,
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: Text(
+                                                      asset.exchange!,
+                                                      style: TextStyle(fontSize: 9.5, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
+                                                    ),
+                                                  ),
+                                                ],
+                                                if (isOnlineResult) ...[
+                                                  const SizedBox(width: 4),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                                    decoration: BoxDecoration(
+                                                      color: const Color(0xFFEEF2FF),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                    ),
+                                                    child: const Text(
+                                                      'Yahoo',
+                                                      style: TextStyle(fontSize: 9, color: Color(0xFF4F46E5), fontWeight: FontWeight.bold),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
                                             ),
                                             Text(
                                               asset.name,
@@ -389,7 +526,7 @@ class _AddStockDialogState extends State<AddStockDialog> {
                           ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
                   // Section 2: Custom Name
                   const Text(
@@ -404,7 +541,7 @@ class _AddStockDialogState extends State<AddStockDialog> {
                   TextField(
                     controller: _customNameController,
                     decoration: InputDecoration(
-                      hintText: "Ex: Mes actions Apple, Portefeuille BTC...",
+                      hintText: "Ex: Mes actions Take-Two, GTA 6, Portefeuille...",
                       prefixIcon: const Icon(Icons.label_outline, size: 20),
                       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                       filled: true,
@@ -416,7 +553,7 @@ class _AddStockDialogState extends State<AddStockDialog> {
                     ),
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
                   // Section 3: Purchase Date and Time
                   Row(
@@ -558,7 +695,7 @@ class _AddStockDialogState extends State<AddStockDialog> {
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     onChanged: _onManualPriceChanged,
                     decoration: InputDecoration(
-                      hintText: "Ex: 263.75",
+                      hintText: "Ex: 189.26",
                       suffixText: "€",
                       suffixStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       prefixIcon: const Icon(Icons.euro_symbol_rounded, size: 19),
@@ -573,7 +710,7 @@ class _AddStockDialogState extends State<AddStockDialog> {
                     ),
                   ),
 
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 16),
 
                   // Preview of calculated price and variation
                   Container(
@@ -705,7 +842,7 @@ class _AddStockDialogState extends State<AddStockDialog> {
           setState(() {
             _selectedCategoryFilter = value;
           });
-          _filterAssets();
+          _filterLocalAssets();
         }
       },
       selectedColor: const Color(0xFF111827),
