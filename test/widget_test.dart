@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:app_widget_stock_tracker/main.dart';
 import 'package:app_widget_stock_tracker/models/widget_stock_item.dart';
 import 'package:app_widget_stock_tracker/models/stock_widget_model.dart';
+import 'package:app_widget_stock_tracker/models/stock_asset.dart';
+import 'package:app_widget_stock_tracker/services/market_data_service.dart';
 import 'package:app_widget_stock_tracker/services/widget_storage_service.dart';
 import 'package:app_widget_stock_tracker/widgets/stock_widget_card.dart';
 import 'package:app_widget_stock_tracker/widgets/stock_item_tile.dart';
@@ -237,4 +239,27 @@ void main() {
     expect(loaded.first.items.first.symbol, 'AAPL');
     expect(loaded.first.isPinned, isTrue);
   });
+
+  test('MarketDataService contains Take-Two Interactive and expanded assets', () {
+    final service = MarketDataService();
+    final allAssets = service.getAllAssets();
+
+    // Verify Take-Two Interactive is present
+    final ttwo = service.getAssetBySymbol('TTWO');
+    expect(ttwo, isNotNull);
+    expect(ttwo!.name, contains('Take-Two'));
+    expect(ttwo.symbol, 'TTWO');
+
+    // Verify gaming category
+    final gamingAssets = allAssets.where((a) => a.category == AssetCategory.gaming).toList();
+    expect(gamingAssets.length, greaterThanOrEqualTo(5));
+    expect(gamingAssets.any((a) => a.symbol == 'TTWO'), isTrue);
+    expect(gamingAssets.any((a) => a.symbol == 'EA'), isTrue);
+
+    // Verify European & French stocks
+    final euAssets = allAssets.where((a) => a.category == AssetCategory.euStock).toList();
+    expect(euAssets.length, greaterThanOrEqualTo(10));
+    expect(euAssets.any((a) => a.symbol == 'MC.PA'), isTrue);
+  });
 }
+
