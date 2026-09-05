@@ -44,7 +44,7 @@ public class StockWidgetProvider extends HomeWidgetProvider {
     public static final String NOTIFICATION_CHANNEL_ID = "stock_widget_alerts";
     public static final String KEY_LAST_NOTIFIED_UPDATE = "last_notified_update_timestamp";
     public static final int NOTIFICATION_ID = 2001;
-    public static final double VARIATION_ALERT_THRESHOLD = 1.0; // Notification trigger: variation > +1%
+    public static final double VARIATION_ALERT_THRESHOLD = 10.0; // Notification trigger: variation > +10%
     public static final long UPDATE_INTERVAL_MILLIS = 30 * 60 * 1000L; // 30 minutes
     public static final long STALE_THRESHOLD_MILLIS = 25 * 60 * 1000L; // 25 minutes
 
@@ -322,7 +322,7 @@ public class StockWidgetProvider extends HomeWidgetProvider {
     }
 
     /**
-     * Checks if any stock item in the widget model has a variation > +1%,
+     * Checks if any stock item in the widget model has a variation > +10%,
      * and triggers a local Android notification. Completely local without any external server.
      */
     public static void checkAndNotifyPositiveVariations(Context context, SharedPreferences widgetData) {
@@ -361,7 +361,7 @@ public class StockWidgetProvider extends HomeWidgetProvider {
                 prefs.edit().putString(KEY_LAST_NOTIFIED_UPDATE, lastUpdated).apply();
             }
 
-            // 3. Parse items and identify those with variation > 1% (+1%)
+            // 3. Parse items and identify those with variation > 10% (+10%)
             JSONArray arr = jsonObj.optJSONArray("items");
             if (arr == null || arr.length() == 0) {
                 return;
@@ -377,14 +377,14 @@ public class StockWidgetProvider extends HomeWidgetProvider {
 
                 if (initialPrice > 0.0) {
                     double variation = ((currentPrice - initialPrice) / initialPrice) * 100.0;
-                    if (variation > VARIATION_ALERT_THRESHOLD) { // Variation > +1%
+                    if (variation > VARIATION_ALERT_THRESHOLD) { // Variation > +10%
                         alertItems.add(new StockAlertItem(symbol, customName, initialPrice, currentPrice, variation));
                     }
                 }
             }
 
             if (alertItems.isEmpty()) {
-                Log.d(TAG, "No stock items with variation > +1% found.");
+                Log.d(TAG, "No stock items with variation > +10% found.");
                 return;
             }
 
@@ -425,7 +425,7 @@ public class StockWidgetProvider extends HomeWidgetProvider {
                         "Alertes Variations Widget",
                         NotificationManager.IMPORTANCE_HIGH
                     );
-                    channel.setDescription("Notifications locales lors de l'actualisation du widget (> +1%)");
+                    channel.setDescription("Notifications locales lors de l'actualisation du widget (> +10%)");
                     channel.enableVibration(true);
                     channel.enableLights(true);
                     channel.setLightColor(0xFF1B873F);
@@ -449,17 +449,17 @@ public class StockWidgetProvider extends HomeWidgetProvider {
 
                 String displayName = item.customName != null && !item.customName.isEmpty() ? item.customName : item.symbol;
                 title = "📈 " + displayName + " : " + varStr;
-                contentText = "Cours actuel : " + priceStr + " (Variation > +1%)";
+                contentText = "Cours actuel : " + priceStr + " (Variation > +10%)";
                 bigText = "L'action " + displayName + " (" + item.symbol + ") progresse de " + varStr + ".\n"
                         + "Cours actuel : " + priceStr + "\n"
                         + "Prix d'achat initial : " + nf.format(item.initialPrice) + " €";
             } else {
                 int count = alertItems.size();
-                title = "📈 " + count + " actions en hausse (> +1%)";
+                title = "📈 " + count + " actions en hausse (> +10%)";
 
                 StringBuilder summaryBuilder = new StringBuilder();
                 StringBuilder bigTextBuilder = new StringBuilder();
-                bigTextBuilder.append("Actualisation du widget - Variations supérieures à +1% :\n");
+                bigTextBuilder.append("Actualisation du widget - Variations supérieures à +10% :\n");
 
                 for (int i = 0; i < alertItems.size(); i++) {
                     StockAlertItem item = alertItems.get(i);
@@ -511,7 +511,7 @@ public class StockWidgetProvider extends HomeWidgetProvider {
                    .setAutoCancel(true);
 
             notificationManager.notify(NOTIFICATION_ID, builder.build());
-            Log.d(TAG, "Local notification successfully dispatched for " + alertItems.size() + " stock(s) > +1%");
+            Log.d(TAG, "Local notification successfully dispatched for " + alertItems.size() + " stock(s) > +10%");
 
         } catch (Exception e) {
             Log.e(TAG, "Error building or dispatching stock notification", e);

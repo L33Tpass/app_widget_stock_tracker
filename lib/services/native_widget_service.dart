@@ -102,8 +102,8 @@ class NativeWidgetService {
     }
   }
 
-  /// Returns stock items from the widget model whose variation is strictly greater than [threshold] percent (defaults to +1.0%)
-  List<WidgetStockItem> getItemsWithPositiveVariation(StockWidgetModel model, {double threshold = 1.0}) {
+  /// Returns stock items from the widget model whose variation is strictly greater than [threshold] percent (defaults to +10.0%)
+  List<WidgetStockItem> getItemsWithPositiveVariation(StockWidgetModel model, {double threshold = 10.0}) {
     return model.items.where((item) => item.variationPercentage > threshold).toList();
   }
 
