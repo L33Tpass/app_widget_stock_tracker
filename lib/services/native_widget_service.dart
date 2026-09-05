@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:home_widget/home_widget.dart';
 import '../models/stock_widget_model.dart';
 import '../services/market_data_service.dart';
+import '../services/widget_storage_service.dart';
 
 class NativeWidgetService {
   static final NativeWidgetService _instance = NativeWidgetService._internal();
@@ -25,14 +26,34 @@ class NativeWidgetService {
     }
   }
 
-  /// Refreshes quotes in the background when user taps the refresh button on the Android home screen
+  /// Refreshes quotes in the background upon periodic automatic refresh or when user taps the refresh button
   Future<void> refreshFromBackground() async {
     try {
       final jsonStr = await HomeWidget.getWidgetData<String>('saved_widget_model');
+      StockWidgetModel? model;
       if (jsonStr != null && jsonStr.isNotEmpty) {
-        final model = StockWidgetModel.fromJsonString(jsonStr);
+        model = StockWidgetModel.fromJsonString(jsonStr);
+      } else {
+        final savedWidgets = await WidgetStorageService().loadWidgets();
+        if (savedWidgets.isNotEmpty) {
+          model = savedWidgets.firstWhere((w) => w.isPinned, orElse: () => savedWidgets.first);
+        }
+      }
+
+      if (model != null) {
         await MarketDataService().refreshWidgetLivePrices(model);
         await updateNativeWidget(model);
+
+        // Keep WidgetStorageService in sync so Flutter app also shows updated prices
+        try {
+          final storage = WidgetStorageService();
+          final allWidgets = await storage.loadWidgets();
+          final idx = allWidgets.indexWhere((w) => w.id == model!.id);
+          if (idx != -1) {
+            allWidgets[idx] = model;
+            await storage.saveWidgets(allWidgets);
+          }
+        } catch (_) {}
       } else {
         await HomeWidget.updateWidget(
           name: 'StockWidgetProvider',

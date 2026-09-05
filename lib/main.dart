@@ -3,11 +3,14 @@ import 'package:home_widget/home_widget.dart';
 import 'screens/home_screen.dart';
 import 'services/native_widget_service.dart';
 
-/// Called in the background when user taps the refresh arrow on the phone home screen widget
+/// Called in the background when user taps the refresh arrow on the phone home screen widget or via periodic auto-refresh
 @pragma("vm:entry-point")
 Future<void> backgroundWidgetCallback(Uri? uri) async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (uri?.host == 'refresh' || uri?.scheme == 'stocktracker') {
+  if (uri == null ||
+      uri.host == 'refresh' ||
+      uri.scheme.toLowerCase() == 'stocktracker' ||
+      uri.toString().contains('refresh')) {
     await NativeWidgetService().refreshFromBackground();
   }
 }
