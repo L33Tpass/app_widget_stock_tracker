@@ -263,7 +263,7 @@ void main() {
     expect(euAssets.any((a) => a.symbol == 'MC.PA'), isTrue);
   });
 
-  test('NativeWidgetService correctly filters stocks with variation > +1% for alerts', () {
+  test('NativeWidgetService correctly filters stocks with variation > +10% for alerts', () {
     final now = DateTime.now();
     final model = StockWidgetModel(
       id: 'alert-test-widget',
@@ -275,7 +275,7 @@ void main() {
           customName: 'Nvidia',
           purchaseDate: now.subtract(const Duration(days: 10)),
           initialPrice: 100.0,
-          currentPrice: 101.50, // +1.50% -> triggers notification
+          currentPrice: 115.00, // +15.00% -> triggers notification (> +10%)
         ),
         WidgetStockItem(
           id: '2',
@@ -283,7 +283,7 @@ void main() {
           customName: 'Apple',
           purchaseDate: now.subtract(const Duration(days: 10)),
           initialPrice: 100.0,
-          currentPrice: 101.00, // +1.00% -> exactly 1.0%, not > 1%
+          currentPrice: 110.00, // +10.00% -> exactly 10.0%, not > 10%
         ),
         WidgetStockItem(
           id: '3',
@@ -291,7 +291,7 @@ void main() {
           customName: 'Tesla',
           purchaseDate: now.subtract(const Duration(days: 10)),
           initialPrice: 100.0,
-          currentPrice: 100.50, // +0.50% -> below threshold
+          currentPrice: 105.00, // +5.00% -> below threshold
         ),
         WidgetStockItem(
           id: '4',
@@ -299,7 +299,7 @@ void main() {
           customName: 'Ubisoft',
           purchaseDate: now.subtract(const Duration(days: 10)),
           initialPrice: 100.0,
-          currentPrice: 95.00, // -5.00% -> negative variation
+          currentPrice: 90.00, // -10.00% -> negative variation
         ),
         WidgetStockItem(
           id: '5',
@@ -307,12 +307,12 @@ void main() {
           customName: 'Bitcoin',
           purchaseDate: now.subtract(const Duration(days: 10)),
           initialPrice: 50000.0,
-          currentPrice: 52000.0, // +4.00% -> triggers notification
+          currentPrice: 60000.0, // +20.00% -> triggers notification (> +10%)
         ),
       ],
     );
 
-    final qualifying = NativeWidgetService().getItemsWithPositiveVariation(model, threshold: 1.0);
+    final qualifying = NativeWidgetService().getItemsWithPositiveVariation(model, threshold: 10.0);
     expect(qualifying.length, 2);
     expect(qualifying.map((e) => e.symbol), containsAll(['NVDA', 'BTC/EUR']));
     expect(qualifying.map((e) => e.symbol), isNot(contains('AAPL')));
