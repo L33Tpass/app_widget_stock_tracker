@@ -1,22 +1,34 @@
 package com.example.app_widget_stock_tracker;
 
+import android.Manifest;
 import android.app.AlarmManager;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.net.Uri;
+import android.os.Build;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.widget.RemoteViews;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.text.NumberFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 
 import es.antonborri.home_widget.HomeWidgetBackgroundReceiver;
@@ -29,6 +41,10 @@ public class StockWidgetProvider extends HomeWidgetProvider {
     public static final String ACTION_AUTO_UPDATE = "com.example.app_widget_stock_tracker.ACTION_AUTO_UPDATE";
     public static final String PREF_NAME = "HomeWidgetPreferences";
     public static final String KEY_LAST_REFRESH = "last_auto_refresh_timestamp";
+    public static final String NOTIFICATION_CHANNEL_ID = "stock_widget_alerts";
+    public static final String KEY_LAST_NOTIFIED_UPDATE = "last_notified_update_timestamp";
+    public static final int NOTIFICATION_ID = 2001;
+    public static final double VARIATION_ALERT_THRESHOLD = 1.0; // Notification trigger: variation > +1%
     public static final long UPDATE_INTERVAL_MILLIS = 30 * 60 * 1000L; // 30 minutes
     public static final long STALE_THRESHOLD_MILLIS = 25 * 60 * 1000L; // 25 minutes
 
@@ -206,6 +222,7 @@ public class StockWidgetProvider extends HomeWidgetProvider {
                 SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
                 prefs.edit().putLong(KEY_LAST_REFRESH, System.currentTimeMillis()).apply();
                 schedulePeriodicUpdate(context);
+                checkAndNotifyPositiveVariations(context, null);
             } else {
                 // Update dispatched by Android OS (30-min updatePeriodMillis or initial placement)
                 schedulePeriodicUpdate(context);
@@ -224,6 +241,7 @@ public class StockWidgetProvider extends HomeWidgetProvider {
             SharedPreferences widgetData) {
 
         schedulePeriodicUpdate(context);
+        checkAndNotifyPositiveVariations(context, widgetData);
 
         for (int appWidgetId : appWidgetIds) {
             RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.stock_widget_layout);
@@ -300,6 +318,219 @@ public class StockWidgetProvider extends HomeWidgetProvider {
 
             appWidgetManager.updateAppWidget(appWidgetId, views);
             appWidgetManager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.stock_list_view);
+        }
+    }
+
+    /**
+     * Checks if any stock item in the widget model has a variation > +1%,
+     * and triggers a local Android notification. Completely local without any external server.
+     */
+    public static void checkAndNotifyPositiveVariations(Context context, SharedPreferences widgetData) {
+        try {
+            // 1. Retrieve the saved widget model JSON
+            String jsonStr = null;
+            if (widgetData != null) {
+                jsonStr = widgetData.getString("saved_widget_model", null);
+            }
+            if (jsonStr == null || jsonStr.isEmpty()) {
+                SharedPreferences homePrefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+                jsonStr = homePrefs.getString("saved_widget_model", null);
+            }
+            if (jsonStr == null || jsonStr.isEmpty()) {
+                SharedPreferences flutterPrefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE);
+                jsonStr = flutterPrefs.getString("flutter.saved_widget_model", null);
+            }
+
+            if (jsonStr == null || jsonStr.isEmpty()) {
+                return;
+            }
+
+            JSONObject jsonObj = new JSONObject(jsonStr);
+            String lastUpdated = jsonObj.optString("lastUpdated", "");
+
+            // 2. Prevent duplicate notifications for the exact same update timestamp
+            SharedPreferences prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
+            String lastNotified = prefs.getString(KEY_LAST_NOTIFIED_UPDATE, "");
+            if (!lastUpdated.isEmpty() && lastUpdated.equals(lastNotified)) {
+                Log.d(TAG, "Notification already evaluated for timestamp: " + lastUpdated);
+                return;
+            }
+
+            // Mark this update timestamp as evaluated
+            if (!lastUpdated.isEmpty()) {
+                prefs.edit().putString(KEY_LAST_NOTIFIED_UPDATE, lastUpdated).apply();
+            }
+
+            // 3. Parse items and identify those with variation > 1% (+1%)
+            JSONArray arr = jsonObj.optJSONArray("items");
+            if (arr == null || arr.length() == 0) {
+                return;
+            }
+
+            List<StockAlertItem> alertItems = new ArrayList<>();
+            for (int i = 0; i < arr.length(); i++) {
+                JSONObject itemObj = arr.getJSONObject(i);
+                String symbol = itemObj.optString("symbol", "");
+                String customName = itemObj.optString("customName", symbol);
+                double initialPrice = itemObj.optDouble("initialPrice", 0.0);
+                double currentPrice = itemObj.optDouble("currentPrice", 0.0);
+
+                if (initialPrice > 0.0) {
+                    double variation = ((currentPrice - initialPrice) / initialPrice) * 100.0;
+                    if (variation > VARIATION_ALERT_THRESHOLD) { // Variation > +1%
+                        alertItems.add(new StockAlertItem(symbol, customName, initialPrice, currentPrice, variation));
+                    }
+                }
+            }
+
+            if (alertItems.isEmpty()) {
+                Log.d(TAG, "No stock items with variation > +1% found.");
+                return;
+            }
+
+            // Sort by variation descending (highest increase on top)
+            Collections.sort(alertItems, new Comparator<StockAlertItem>() {
+                @Override
+                public int compare(StockAlertItem o1, StockAlertItem o2) {
+                    return Double.compare(o2.variation, o1.variation);
+                }
+            });
+
+            // 4. Send the local notification
+            sendStockNotification(context, alertItems);
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error evaluating stock variation notifications", e);
+        }
+    }
+
+    private static void sendStockNotification(Context context, List<StockAlertItem> alertItems) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    Log.w(TAG, "Cannot send notification: POST_NOTIFICATIONS permission not granted.");
+                    return;
+                }
+            }
+
+            NotificationManager notificationManager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (notificationManager == null) return;
+
+            // Create notification channel for Android 8.0+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel channel = notificationManager.getNotificationChannel(NOTIFICATION_CHANNEL_ID);
+                if (channel == null) {
+                    channel = new NotificationChannel(
+                        NOTIFICATION_CHANNEL_ID,
+                        "Alertes Variations Widget",
+                        NotificationManager.IMPORTANCE_HIGH
+                    );
+                    channel.setDescription("Notifications locales lors de l'actualisation du widget (> +1%)");
+                    channel.enableVibration(true);
+                    channel.enableLights(true);
+                    channel.setLightColor(0xFF1B873F);
+                    notificationManager.createNotificationChannel(channel);
+                }
+            }
+
+            NumberFormat nf = NumberFormat.getNumberInstance(Locale.FRANCE);
+            nf.setMinimumFractionDigits(2);
+            nf.setMaximumFractionDigits(2);
+
+            String title;
+            String contentText;
+            String bigText;
+
+            if (alertItems.size() == 1) {
+                StockAlertItem item = alertItems.get(0);
+                String sign = item.variation >= 0 ? "+" : "";
+                String varStr = sign + String.format(Locale.US, "%.2f%%", item.variation);
+                String priceStr = nf.format(item.currentPrice) + " €";
+
+                String displayName = item.customName != null && !item.customName.isEmpty() ? item.customName : item.symbol;
+                title = "📈 " + displayName + " : " + varStr;
+                contentText = "Cours actuel : " + priceStr + " (Variation > +1%)";
+                bigText = "L'action " + displayName + " (" + item.symbol + ") progresse de " + varStr + ".\n"
+                        + "Cours actuel : " + priceStr + "\n"
+                        + "Prix d'achat initial : " + nf.format(item.initialPrice) + " €";
+            } else {
+                int count = alertItems.size();
+                title = "📈 " + count + " actions en hausse (> +1%)";
+
+                StringBuilder summaryBuilder = new StringBuilder();
+                StringBuilder bigTextBuilder = new StringBuilder();
+                bigTextBuilder.append("Actualisation du widget - Variations supérieures à +1% :\n");
+
+                for (int i = 0; i < alertItems.size(); i++) {
+                    StockAlertItem item = alertItems.get(i);
+                    String sign = item.variation >= 0 ? "+" : "";
+                    String varStr = sign + String.format(Locale.US, "%.2f%%", item.variation);
+                    String priceStr = nf.format(item.currentPrice) + " €";
+                    String displayName = item.customName != null && !item.customName.isEmpty() ? item.customName : item.symbol;
+
+                    if (i > 0) summaryBuilder.append(", ");
+                    summaryBuilder.append(item.symbol).append(" (").append(varStr).append(")");
+
+                    bigTextBuilder.append("• ").append(displayName)
+                            .append(" (").append(item.symbol).append(") : ")
+                            .append(priceStr).append(" (").append(varStr).append(")");
+                    if (i < alertItems.size() - 1) {
+                        bigTextBuilder.append("\n");
+                    }
+                }
+
+                contentText = summaryBuilder.toString();
+                bigText = bigTextBuilder.toString();
+            }
+
+            Intent intent = new Intent(context, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent pendingIntent = PendingIntent.getActivity(
+                context,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+            );
+
+            Notification.Builder builder;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                builder = new Notification.Builder(context, NOTIFICATION_CHANNEL_ID);
+            } else {
+                builder = new Notification.Builder(context);
+                builder.setPriority(Notification.PRIORITY_HIGH);
+                builder.setDefaults(Notification.DEFAULT_ALL);
+            }
+
+            int iconRes = R.drawable.ic_stat_trending_up;
+
+            builder.setSmallIcon(iconRes)
+                   .setContentTitle(title)
+                   .setContentText(contentText)
+                   .setStyle(new Notification.BigTextStyle().bigText(bigText))
+                   .setContentIntent(pendingIntent)
+                   .setAutoCancel(true);
+
+            notificationManager.notify(NOTIFICATION_ID, builder.build());
+            Log.d(TAG, "Local notification successfully dispatched for " + alertItems.size() + " stock(s) > +1%");
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error building or dispatching stock notification", e);
+        }
+    }
+
+    private static class StockAlertItem {
+        final String symbol;
+        final String customName;
+        final double initialPrice;
+        final double currentPrice;
+        final double variation;
+
+        StockAlertItem(String symbol, String customName, double initialPrice, double currentPrice, double variation) {
+            this.symbol = symbol;
+            this.customName = customName;
+            this.initialPrice = initialPrice;
+            this.currentPrice = currentPrice;
+            this.variation = variation;
         }
     }
 }

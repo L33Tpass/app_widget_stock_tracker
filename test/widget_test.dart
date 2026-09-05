@@ -5,6 +5,7 @@ import 'package:app_widget_stock_tracker/models/widget_stock_item.dart';
 import 'package:app_widget_stock_tracker/models/stock_widget_model.dart';
 import 'package:app_widget_stock_tracker/models/stock_asset.dart';
 import 'package:app_widget_stock_tracker/services/market_data_service.dart';
+import 'package:app_widget_stock_tracker/services/native_widget_service.dart';
 import 'package:app_widget_stock_tracker/services/widget_storage_service.dart';
 import 'package:app_widget_stock_tracker/widgets/stock_widget_card.dart';
 import 'package:app_widget_stock_tracker/widgets/stock_item_tile.dart';
@@ -260,6 +261,63 @@ void main() {
     final euAssets = allAssets.where((a) => a.category == AssetCategory.euStock).toList();
     expect(euAssets.length, greaterThanOrEqualTo(10));
     expect(euAssets.any((a) => a.symbol == 'MC.PA'), isTrue);
+  });
+
+  test('NativeWidgetService correctly filters stocks with variation > +1% for alerts', () {
+    final now = DateTime.now();
+    final model = StockWidgetModel(
+      id: 'alert-test-widget',
+      lastUpdated: now,
+      items: [
+        WidgetStockItem(
+          id: '1',
+          symbol: 'NVDA',
+          customName: 'Nvidia',
+          purchaseDate: now.subtract(const Duration(days: 10)),
+          initialPrice: 100.0,
+          currentPrice: 101.50, // +1.50% -> triggers notification
+        ),
+        WidgetStockItem(
+          id: '2',
+          symbol: 'AAPL',
+          customName: 'Apple',
+          purchaseDate: now.subtract(const Duration(days: 10)),
+          initialPrice: 100.0,
+          currentPrice: 101.00, // +1.00% -> exactly 1.0%, not > 1%
+        ),
+        WidgetStockItem(
+          id: '3',
+          symbol: 'TSLA',
+          customName: 'Tesla',
+          purchaseDate: now.subtract(const Duration(days: 10)),
+          initialPrice: 100.0,
+          currentPrice: 100.50, // +0.50% -> below threshold
+        ),
+        WidgetStockItem(
+          id: '4',
+          symbol: 'UBI.PA',
+          customName: 'Ubisoft',
+          purchaseDate: now.subtract(const Duration(days: 10)),
+          initialPrice: 100.0,
+          currentPrice: 95.00, // -5.00% -> negative variation
+        ),
+        WidgetStockItem(
+          id: '5',
+          symbol: 'BTC/EUR',
+          customName: 'Bitcoin',
+          purchaseDate: now.subtract(const Duration(days: 10)),
+          initialPrice: 50000.0,
+          currentPrice: 52000.0, // +4.00% -> triggers notification
+        ),
+      ],
+    );
+
+    final qualifying = NativeWidgetService().getItemsWithPositiveVariation(model, threshold: 1.0);
+    expect(qualifying.length, 2);
+    expect(qualifying.map((e) => e.symbol), containsAll(['NVDA', 'BTC/EUR']));
+    expect(qualifying.map((e) => e.symbol), isNot(contains('AAPL')));
+    expect(qualifying.map((e) => e.symbol), isNot(contains('TSLA')));
+    expect(qualifying.map((e) => e.symbol), isNot(contains('UBI.PA')));
   });
 }
 

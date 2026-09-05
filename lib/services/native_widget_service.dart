@@ -1,6 +1,8 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/stock_widget_model.dart';
+import '../models/widget_stock_item.dart';
 import '../services/market_data_service.dart';
 import '../services/widget_storage_service.dart';
 
@@ -96,6 +98,26 @@ class NativeWidgetService {
       return installedWidgets.isNotEmpty;
     } catch (e) {
       debugPrint('Error checking installed widgets: $e');
+      return false;
+    }
+  }
+
+  /// Returns stock items from the widget model whose variation is strictly greater than [threshold] percent (defaults to +1.0%)
+  List<WidgetStockItem> getItemsWithPositiveVariation(StockWidgetModel model, {double threshold = 1.0}) {
+    return model.items.where((item) => item.variationPercentage > threshold).toList();
+  }
+
+  /// Requests notification permission on the Flutter side using permission_handler
+  Future<bool> requestNotificationPermission() async {
+    try {
+      final status = await Permission.notification.status;
+      if (!status.isGranted) {
+        final result = await Permission.notification.request();
+        return result.isGranted;
+      }
+      return true;
+    } catch (e) {
+      debugPrint('Error requesting notification permission: $e');
       return false;
     }
   }
